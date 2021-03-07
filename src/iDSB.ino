@@ -1,5 +1,5 @@
 /*
- * iDSB Copyright (c) 2021 Ian Mitchell, VK7IAN
+ * iDSB Transceiver Copyright (c) 2021 Ian Mitchell, VK7IAN
  *
  * for nano clone with CH340 choose board "arduino duemilanove or diecimila"
  * see: manual install in: http://www.arduino.cc/en/Guide/Libraries
