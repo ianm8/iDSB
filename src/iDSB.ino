@@ -1,6 +1,10 @@
 /*
  * iDSB Transceiver Copyright (c) 2021 Ian Mitchell, VK7IAN
  *
+ ****************************************************************
+ *** Currently this code is for testing and development only! ***
+ ****************************************************************
+ *
  * for nano clone with CH340 choose board "arduino duemilanove or diecimila"
  * see: manual install in: http://www.arduino.cc/en/Guide/Libraries
  * (eg, briefly, copy PWM to C:/Users\Ian\Documents\Arduino\libraries and restart arduino IDE)
