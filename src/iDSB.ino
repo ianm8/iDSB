@@ -66,7 +66,7 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 //https://github.com/arduino/ArduinoCore-avr/blob/master/variants/standard/pins_arduino.h
 //http://wiki.openmusiclabs.com/wiki/ArduinoFHT
 //https://github.com/pilotak/MCP3X21 - MCP3021 - 0x48 (forward) and 0x4D (reverse)
-
+//https://github.com/nerdralph/ArduinoShrink
 
 #define LOG_OUT 1 // use the log output function
 #define FHT_N 256 // set to 256 point fht
@@ -79,6 +79,7 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #include <Wire.h>
 #include <PWM.h>
 #include <FHT.h>
+#include <ArduinoShrink.h>   // must be the last library included!
 
 #define MIN_FREQUENCY        500000UL
 #define MAX_FREQUENCY        30000000UL
