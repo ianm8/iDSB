@@ -66,7 +66,7 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 //https://github.com/arduino/ArduinoCore-avr/blob/master/variants/standard/pins_arduino.h
 //http://wiki.openmusiclabs.com/wiki/ArduinoFHT
 //https://github.com/pilotak/MCP3X21 - MCP3021 - 0x48 (forward) and 0x4D (reverse)
-//https://github.com/nerdralph/ArduinoShrink
+//https://github.com/nerdralph/ArduinoShrink - didn't work
 
 #define LOG_OUT 1 // use the log output function
 #define FHT_N 256 // set to 256 point fht
@@ -79,7 +79,7 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #include <Wire.h>
 #include <PWM.h>
 #include <FHT.h>
-#include <ArduinoShrink.h>   // must be the last library included!
+//#include <ArduinoShrink.h>   // must be the last library included! - didn't work
 
 #define MIN_FREQUENCY        500000UL
 #define MAX_FREQUENCY        30000000UL
@@ -87,8 +87,10 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #define DEFAULT_TUNING_STEP  1000UL
 #define DEFAULT_MIXER        3000UL
 #define DEFAULT_MIXER_ACTUAL 3052UL
-#define DEFAULT_RX_FILTER    2700UL
-#define DEFAULT_TX_FILTER    2500UL
+#define DEFAULT_RX_FILTER1   10000UL
+#define DEFAULT_RX_FILTER2   2700UL
+#define DEFAULT_TX_FILTER1   2500UL
+#define DEFAULT_TX_FILTER2   2500UL
 #define PTT_THRESHOLD        50U
 #define METER_DECAY_RATE     10U
 #define CW_TONE              601UL
@@ -255,10 +257,10 @@ static radio_t radio =
 {
   DEFAULT_FREQUENCY,
   DEFAULT_TUNING_STEP,
-  DEFAULT_RX_FILTER,
-  DEFAULT_RX_FILTER,
-  DEFAULT_TX_FILTER,
-  DEFAULT_TX_FILTER,
+  DEFAULT_RX_FILTER1,
+  DEFAULT_RX_FILTER2,
+  DEFAULT_TX_FILTER1,
+  DEFAULT_TX_FILTER2,
   MODE_LSB,
   BAND_40,
   false,
@@ -611,7 +613,7 @@ class Si514
 {
    public:
       Si514(const uint8_t I2Caddress,const uint32_t default_frequency);
-      void setFrequency(const uint32_t f);
+      void setFrequency(const uint32_t f,const uint8_t mute_pin = 0);
    private:
       uint8_t _I2Caddress;
       uint32_t _frequency;
@@ -624,7 +626,7 @@ Si514::Si514(const uint8_t I2Caddress=0x55,const uint32_t default_frequency=1000
    Wire.begin();
 }
 
-void Si514::setFrequency(const uint32_t f)
+void Si514::setFrequency(const uint32_t f,const uint8_t mute_pin)
 {
   static uint32_t centre_frequency = _frequency;
   static uint64_t m = 0;
@@ -679,6 +681,10 @@ void Si514::setFrequency(const uint32_t f)
     const uint8_t r10 = hs_div&0xff;
     const uint8_t r11 = (hs_div>>8&0x03)|(ls_div<<4&0x70);
 
+    if (mute_pin)
+    {
+      digitalWrite(mute_pin,HIGH);
+    }
     // disable output
     Wire.beginTransmission(_I2Caddress);
     Wire.write(132);
@@ -713,6 +719,11 @@ void Si514::setFrequency(const uint32_t f)
     Wire.write(132);
     Wire.write(SI514_OUTPUT_ENABLE_132);
     Wire.endTransmission();
+
+    if (mute_pin)
+    {
+      digitalWrite(mute_pin,LOW);
+    }
   }
   else
   {
@@ -1040,9 +1051,6 @@ static void smeter(void)
   interrupts();
 
   // remove the DC offset and get the absolute value
-////
-  sv >>= 1;
-/*
   if (sv==0)
   {
     sv = 511;
@@ -1052,7 +1060,7 @@ static void smeter(void)
      sv -= 512;
      sv = abs((int16_t)sv);
   }
-*/
+
   // take the log2 of the signal level
   uint8_t l = 0;
   while (sv>>=1) l++;
@@ -1625,6 +1633,7 @@ void loop(void)
       interrupts();
     }
 
+    // TX sig level?
     smeter();
     if (waterfall_enabled && !radio.tx)
     {
@@ -1691,8 +1700,8 @@ void loop(void)
     {
       case STATE_SSB_RECEIVE_INIT:
       {
-        radio.tx = false;
         digitalWrite(TX_PIN,LOW);
+        radio.tx = false;
         //init();
         tft.setTextSize(2);
         tft.setCursor(POS_TX_X,POS_TX_Y);
@@ -1730,7 +1739,7 @@ void loop(void)
           if (radio.frequency!=new_frequency)
           {
             radio.frequency = new_frequency;
-            so.setFrequency(radio.frequency);
+            so.setFrequency(radio.frequency,MUTE_PIN);
             show_frequency();
           }
         }
@@ -1760,9 +1769,9 @@ void loop(void)
       }
       case STATE_CW_RECEIVE_INIT:
       {
-        radio.tx = false;
         digitalWrite(TX_PIN,LOW);
         digitalWrite(CW_PIN,LOW);
+        radio.tx = false;
         //init();
         tft.setTextSize(2);
         tft.setCursor(POS_TX_X,POS_TX_Y);
@@ -1786,7 +1795,8 @@ void loop(void)
         InitTimersSafe();
         SetPinFrequencySafe(FILTER1_PIN,(uint32_t)radio.rxfilter1*100UL);
         pwmWrite(FILTER1_PIN,128);
-        SetPinFrequencySafe(FILTER2_PIN,(uint32_t)radio.rxfilter2*100UL);
+////        
+        SetPinFrequencySafe(FILTER2_PIN,(uint32_t)700UL*100UL);
         pwmWrite(FILTER2_PIN,128);
         digitalWrite(MUTE_PIN,LOW);
         radio_state = STATE_CW_RECEIVE;
@@ -1808,11 +1818,11 @@ void loop(void)
             radio.frequency = new_frequency;
             if (radio.mode==MODE_CWL)
             {
-              so.setFrequency(radio.frequency+CW_TONE);
+              so.setFrequency(radio.frequency+CW_TONE,MUTE_PIN);
             }
             else
             {
-              so.setFrequency(radio.frequency-CW_TONE);
+              so.setFrequency(radio.frequency-CW_TONE,MUTE_PIN);
             }
             show_frequency();
           }
@@ -1907,12 +1917,13 @@ void loop(void)
       }
       case STATE_CW_TX_INIT:
       {
-        digitalWrite(MUTE_PIN,LOW);
+        digitalWrite(MUTE_PIN,HIGH);
         so.setFrequency(radio.frequency);
-        cw_tone_on();
         digitalWrite(CW_PIN,HIGH);
         digitalWrite(CW_TONE_PIN,LOW);
         digitalWrite(TX_PIN,HIGH);
+        cw_tone_on();
+        digitalWrite(MUTE_PIN,LOW);
         radio.tx = true;
         tft.setTextSize(2);
         tft.setCursor(POS_TX_X,POS_TX_Y);
@@ -1933,6 +1944,7 @@ void loop(void)
           // PTT still in effect
           break;
         }
+        digitalWrite(MUTE_PIN,HIGH);
         // disable tone
         cw_tone_off();
         // go back to receive
