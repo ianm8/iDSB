@@ -1731,6 +1731,7 @@ void loop(void)
         if (k!=0 && !radio.locked)
         {
           uint32_t new_frequency = radio.frequency+radio.tuning_step*k;
+          new_frequency -= new_frequency%radio.tuning_step;
           if (new_frequency<MIN_FREQUENCY||new_frequency>MAX_FREQUENCY)
           {
             if (k<0) new_frequency = MIN_FREQUENCY;
@@ -1808,6 +1809,7 @@ void loop(void)
         if (k!=0 && !radio.locked)
         {
           uint32_t new_frequency = radio.frequency+radio.tuning_step*k;
+          new_frequency -= new_frequency%radio.tuning_step;
           if (new_frequency<MIN_FREQUENCY||new_frequency>MAX_FREQUENCY)
           {
             if (k<0) new_frequency = MIN_FREQUENCY;
