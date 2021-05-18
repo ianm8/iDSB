@@ -103,6 +103,8 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #define POS_RX_Y            5
 #define POS_MODE_X         10
 #define POS_MODE_Y         30
+#define POS_ATT_X          50
+#define POS_ATT_Y          30
 #define POS_OPTION_LSB_X    1
 #define POS_OPTION_LSB_Y   56
 #define POS_OPTION_USB_X   49
@@ -174,6 +176,15 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #define SIGMON_ADC  0x6 // analog input (S Meter)
 #define SCAN_ADC    0x0 // analog input (spectrum)
 #define CW_PORT_PIN (1<<PD6) // used in ADC ISA for generating CW tone
+
+#define LPF_BAND_160_PIN   0
+#define LPF_BAND_80_PIN    1
+#define LPF_BAND_40_PIN    2
+#define LPF_BAND_20_PIN    3
+#define LPF_BAND_15_PIN    4
+#define LPF_BAND_10_PIN    5
+#define LPF_CTX_PIN        6
+#define LPF_ATTENUATOR_PIN 7
 
 //#define WRITESPI(x) for (SPDR = (x); (!(SPSR & _BV(SPIF)));)
 ///*
@@ -251,6 +262,8 @@ typedef struct
   band_t band;
   uint8_t locked;
   uint8_t tx;
+  uint8_t rx_attenuation;
+  uint8_t tx_attenuation;
 } radio_t;
 
 static radio_t radio =
@@ -263,6 +276,8 @@ static radio_t radio =
   DEFAULT_TX_FILTER2,
   MODE_LSB,
   BAND_40,
+  false,
+  false,
   false,
   false
 };
@@ -1009,6 +1024,19 @@ void setup(void)
   }
 */
 
+static void set_attenuation(const uint8_t on)
+{
+  LPF.output(LPF_ATTENUATOR_PIN,on?TCA9534::Level::H:TCA9534::Level::L);
+}
+
+static void show_attenuation(const uint8_t on)
+{
+  tft.setTextSize(2);
+  tft.setTextColor(ST77XX_RED,ST77XX_BLACK);
+  tft.setCursor(POS_ATT_X,POS_ATT_Y);
+  tft.print(on?F("ATT"):F("   "));
+}
+
 static void show_frequency(void)
 {
   tft.setTextSize(3);
@@ -1030,7 +1058,6 @@ static void show_meter_dial(void)
   tft.setCursor(POS_TUNING_STEP_X-30,POS_TUNING_STEP_Y);
   tft.setTextColor(ST77XX_WHITE);
   tft.print(F("STEP"));
-
 }
 
 static void cw_tone_on(void)
@@ -2032,6 +2059,13 @@ void loop(void)
                   break;
                 }
                 init_options();
+                break;
+              }
+              case OPTION_ATT:
+              {
+                radio.rx_attenuation = !radio.rx_attenuation;
+                set_attenuation(radio.rx_attenuation);
+                show_attenuation(radio.rx_attenuation);
                 break;
               }
             }
