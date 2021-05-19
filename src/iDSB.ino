@@ -65,7 +65,7 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 //http://gammon.com.au/adc
 //https://github.com/arduino/ArduinoCore-avr/blob/master/variants/standard/pins_arduino.h
 //http://wiki.openmusiclabs.com/wiki/ArduinoFHT
-//https://github.com/pilotak/MCP3X21 - MCP3021 - 0x48 (forward) and 0x4D (reverse)
+//https://github.com/pilotak/MCP3X21 - MCP3021 - 0x48 (forward) and 0x49 (reverse)
 //https://github.com/nerdralph/ArduinoShrink - didn't work
 
 #define LOG_OUT 1 // use the log output function
@@ -75,6 +75,7 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #include <Adafruit_ST7735.h> // Hardware-specific library for ST7735
 #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 #include <TCA9534.h>         // note: remove Serial.print() from writeBytes() function!
+#include <MCP3X21.h>         // hardware-specific library for MCP3021 (10 bit ADC)
 #include <SPI.h>
 #include <Wire.h>
 #include <PWM.h>
@@ -805,6 +806,10 @@ TCA9534 LPF;
 TCA9534 L;
 TCA9534 C;
 
+// 0x48 (forward) and 0x49 (reverse)
+MCP3021 FWD(0x48);
+MCP3021 REV(0x49);
+
 static Rotary r = Rotary(ENCB_PIN,ENCA_PIN);
 
 // ADC interrupt
@@ -821,9 +826,7 @@ ISR(ADC_vect)
 
   if (p==254) sense = v;
   else if (p==255) sigmon = v;
-////
   else if (!buffer_full) fht_input[p] = (v-512)<<6;
-  //else if (!buffer_full) fht_input[p] = v<<6;
 
   if (p==252) ADMUX = bit(REFS0)|(SENSE_ADC&0x0f);
   else if (p==253) ADMUX = bit(REFS0)|(SIGMON_ADC&0x0f);
@@ -945,6 +948,9 @@ void setup(void)
   C.polarity(TCA9534::Polarity::ORIGINAL);
   C.output(TCA9534::Level::L);
 
+  FWD.init();
+  REV.init();
+
 ////
 /*
   InitTimersSafe();
@@ -1052,6 +1058,23 @@ void setup(void)
     }
   }
 */
+
+static const uint16_t get_swr(void)
+{
+  // SWR = (Vf+Vr)/(Vf-Vr)
+  int16_t Vf = FWD.read();
+  int16_t Vr = REV.read();
+  uint16_t swr = 999;
+  if (Vr<Vf)
+  {
+    uint32_t swr = (100*(Vf+Vr)) / (Vf-Vr);
+    if (swr>999)
+    {
+      swr = 999;
+    }
+  }
+  return (uint16_t)swr;
+}
 
 static void set_attenuation(const uint8_t on)
 {
