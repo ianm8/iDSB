@@ -95,6 +95,13 @@ tft.drawBitmap(x, y, canvas.getBuffer(), 128, 32, foreground, background); // Co
 #define METER_DECAY_RATE     10U
 #define CW_TONE              601UL
 
+#define BAND_EDGE_160        2200000UL
+#define BAND_EDGE_80         4400000UL
+#define BAND_EDGE_40         8000000UL
+#define BAND_EDGE_20         16000000UL
+#define BAND_EDGE_15         23000000UL
+#define BAND_EDGE_10         32000000UL
+
 #define POS_FREQUENCY_X    80
 #define POS_FREQUENCY_Y     0
 #define POS_TX_X           10
@@ -869,6 +876,27 @@ ISR(ADC_vect)
 #define ENCA_PIN    A2 // digital input (with pullup)
 #define SCAN_PIN    A0 // analog input (spectrum)
 */
+
+static void set_lpf(void)
+{
+  static uint8_t bp = 0xff;
+  uint8_t band_pin = LPF_BAND_10_PIN;
+  if (radio.frequency<BAND_EDGE_160) band_pin = LPF_BAND_160_PIN;
+  else if (radio.frequency<BAND_EDGE_80) band_pin = LPF_BAND_80_PIN;
+  else if (radio.frequency<BAND_EDGE_40) band_pin = LPF_BAND_40_PIN;
+  else if (radio.frequency<BAND_EDGE_20) band_pin = LPF_BAND_20_PIN;
+  else if (radio.frequency<BAND_EDGE_15) band_pin = LPF_BAND_15_PIN;
+  if (band_pin!=bp)
+  {
+    if (bp!=0xff)
+    {
+      LPF.output(bp,TCA9534::Level::L);
+    }
+    LPF.output(band_pin,TCA9534::Level::H);
+    bp = band_pin;
+  }
+}
+
 void setup(void)
 {
   //Serial.begin(9600);
@@ -942,6 +970,7 @@ void setup(void)
   tft.fillScreen(ST77XX_BLACK);
 
   so.setFrequency(radio.frequency);
+  set_lpf();
 /*
   for (uint32_t f = 10000000;f<=10010000;f+=1000)
   {
@@ -1769,6 +1798,7 @@ void loop(void)
             radio.frequency = new_frequency;
             so.setFrequency(radio.frequency,MUTE_PIN);
             show_frequency();
+            set_lpf();
           }
         }
         if (digitalRead(ENCBUT_PIN)==LOW)
@@ -1854,6 +1884,7 @@ void loop(void)
               so.setFrequency(radio.frequency-CW_TONE,MUTE_PIN);
             }
             show_frequency();
+            set_lpf();
           }
         }
         if (digitalRead(ENCBUT_PIN)==LOW)
