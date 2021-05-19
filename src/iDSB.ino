@@ -1064,10 +1064,10 @@ static const uint16_t get_swr(void)
   // SWR = (Vf+Vr)/(Vf-Vr)
   int16_t Vf = FWD.read();
   int16_t Vr = REV.read();
-  uint16_t swr = 999;
+  uint32_t swr = 999;
   if (Vr<Vf)
   {
-    uint32_t swr = (100*(Vf+Vr)) / (Vf-Vr);
+    swr = (100*(Vf+Vr)) / (Vf-Vr);
     if (swr>999)
     {
       swr = 999;
